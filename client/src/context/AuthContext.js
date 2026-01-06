@@ -32,7 +32,19 @@ export const AuthProvider = ({ children }) => {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(credentials)
       });
-      const json = await res.json();
+
+      // Handle non-JSON or error responses gracefully
+      const contentType = res.headers.get('content-type') || '';
+      let json;
+      if (contentType.includes('application/json')) {
+        json = await res.json();
+      } else {
+        const text = await res.text();
+        // Strip HTML if any
+        const stripped = text.replace(/<[^>]*>/g, '').trim();
+        throw new Error(stripped || `Unexpected response (status ${res.status})`);
+      }
+
       if (!res.ok) throw new Error(json.error || 'Login failed');
 
       const stored = { ...json.user, token: json.token };
@@ -63,7 +75,17 @@ export const AuthProvider = ({ children }) => {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload)
       });
-      const json = await res.json();
+
+      const contentType = res.headers.get('content-type') || '';
+      let json;
+      if (contentType.includes('application/json')) {
+        json = await res.json();
+      } else {
+        const text = await res.text();
+        const stripped = text.replace(/<[^>]*>/g, '').trim();
+        throw new Error(stripped || `Unexpected response (status ${res.status})`);
+      }
+
       if (!res.ok) throw new Error(json.error || 'Registration failed');
 
       const stored = { ...json.user, token: json.token };
