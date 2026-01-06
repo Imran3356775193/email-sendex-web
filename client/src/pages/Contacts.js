@@ -497,17 +497,19 @@ const Contacts = () => {
 
   return (
     <Container maxWidth="xl" sx={{ py: 3 }}>
-      {/* Header */}
       <Box sx={{ mb: 4 }}>
         <Typography variant="h4" fontWeight="bold" gutterBottom>
-          Contact Manager
+          Contact Manager (Removed)
         </Typography>
-        <Typography variant="body1" color="textSecondary">
-          Manage your contact lists and email recipients
-        </Typography>
+        <Alert severity="info">
+          The Contact Manager feature has been removed per client request. You can still export your contacts below before the feature is fully deprecated.
+        </Alert>
       </Box>
-
-      {/* Stats Cards */}
+      <Box sx={{ mt: 3 }}>
+        <Button variant="contained" startIcon={<ExportIcon />} onClick={handleExport} disabled={contacts.length === 0}>
+          Export Contacts (CSV)
+        </Button>
+      </Box>
       <Grid container spacing={3} sx={{ mb: 4 }}>
         <Grid item xs={12} sm={6} md={3}>
           <Card>

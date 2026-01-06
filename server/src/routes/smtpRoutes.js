@@ -277,6 +277,44 @@ router.get('/providers/default', auth, async (req, res) => {
       secure: false,
       dailyLimit: 100,
       hourlyLimit: 30
+    },
+    {
+      name: 'Mailgun',
+      provider: 'mailgun',
+      host: 'smtp.mailgun.org',
+      port: 587,
+      secure: false,
+      dailyLimit: 10000,
+      hourlyLimit: 1000,
+      instructions: 'Use SMTP credentials provided by Mailgun dashboard'
+    },
+    {
+      name: 'Zoho',
+      provider: 'zoho',
+      host: 'smtp.zoho.com',
+      port: 587,
+      secure: false,
+      dailyLimit: 1000,
+      hourlyLimit: 200,
+      instructions: 'Ensure SMTP is enabled in Zoho Mail settings'
+    },
+    {
+      name: 'Mailjet',
+      provider: 'mailjet',
+      host: 'in-v3.mailjet.com',
+      port: 587,
+      secure: false,
+      dailyLimit: 10000,
+      hourlyLimit: 1000
+    },
+    {
+      name: 'MailerSend',
+      provider: 'mailersend',
+      host: 'smtp.mailersend.net',
+      port: 587,
+      secure: false,
+      dailyLimit: 10000,
+      hourlyLimit: 1000
     }
   ];
 

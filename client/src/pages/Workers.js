@@ -6,6 +6,7 @@ import {
   Card,
   CardContent,
   Typography,
+  Alert,
   Box,
   Slider,
   TextField,
@@ -175,11 +176,11 @@ const Workers = ({ socket }) => {
   return (
     <Container maxWidth="xl" sx={{ py: 3 }}>
       <Typography variant="h4" fontWeight="bold" gutterBottom>
-        Worker Settings
+        Workers (Removed)
       </Typography>
-
-      <Grid container spacing={3}>
-        {/* Left Panel - Settings */}
+      <Alert severity="info">
+        The Workers feature (background campaign processors) has been removed per client request.
+      </Alert>
         <Grid item xs={12} md={4}>
           <Card elevation={2}>
             <CardContent>

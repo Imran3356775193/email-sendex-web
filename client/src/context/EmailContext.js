@@ -170,7 +170,10 @@ export const EmailProvider = ({ children }) => {
       if (v.includes('yahoo')) return 'yahoo';
       if (v.includes('sendgrid')) return 'sendgrid';
       if (v.includes('amazon') || v.includes('aws') || v.includes('ses')) return 'amazon_ses';
-      if (v.includes('mailgun')) return 'custom';
+      if (v.includes('mailgun')) return 'mailgun';
+      if (v.includes('zoho')) return 'zoho';
+      if (v.includes('mailjet')) return 'mailjet';
+      if (v.includes('mailersend') || v.includes('mailer')) return 'mailersend';
       return 'custom';
     };
 

@@ -10,6 +10,12 @@ const { Readable } = require('stream');
 
 const upload = multer({ storage: multer.memoryStorage() });
 
+// Contact Manager deprecated: Only /export is available. All other endpoints return 410 Gone.
+router.use((req, res, next) => {
+  if (req.path === '/export') return next();
+  return res.status(410).json({ success: false, error: 'Contact Manager feature removed per client request. Use /api/contacts/export to download your contacts.' });
+});
+
 // Get all contacts
 router.get('/', auth, async (req, res) => {
   try {

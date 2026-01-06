@@ -292,9 +292,9 @@ const Dashboard = () => {
         <Grid item xs={6} sm={3}>
           <QuickAction
             icon={<People sx={{ fontSize: 32 }} />}
-            label="Contacts"
+            label="Templates"
             color="#06d6a0"
-            onClick={() => navigate('/contacts')}
+            onClick={() => navigate('/templates')}
           />
         </Grid>
         <Grid item xs={6} sm={3}>
@@ -328,11 +328,10 @@ const Dashboard = () => {
         </Grid>
         <Grid item xs={12} sm={6} md={3}>
           <StatCard
-            title="Active Contacts"
-            value={dashboardStats.activeContacts}
-            icon={<PersonIcon />}
+            title="Open Rate"
+            value={`${dashboardStats.openRate}%`}
+            icon={<OpenIcon />}
             color="#7209b7"
-            onClick={() => navigate('/contacts')}
           />
         </Grid>
         {/* <Grid item xs={12} sm={6} md={3}>

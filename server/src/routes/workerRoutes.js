@@ -2,8 +2,13 @@ const express = require('express');
 const router = express.Router();
 const auth = require('../middleware/auth');
 
+// Workers feature removed per client request. All worker endpoints are deprecated and return 410 Gone.
+router.use((req, res, next) => {
+  return res.status(410).json({ success: false, error: 'Workers feature has been removed per client request.' });
+});
+
 // IMPORTANT: This file should NOT import emailRoutes.js
-// Just create basic worker endpoints
+// Just create basic worker endpoints (deprecated) 
 
 // Start workers for campaign
 router.post('/start', auth, async (req, res) => {
