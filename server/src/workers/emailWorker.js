@@ -56,11 +56,28 @@ emailQueue.process(async (job) => {
     throw new Error('No SMTP configs available for user');
   }
 
+  // Prepare send settings
+  const rotationCount = parseInt(data.emailsBeforeRotation) || 1; // default rotate every 1 email
+  const restSeconds = parseInt(data.restSeconds) || 0; // default no rest
+  const restAfter = parseInt(data.emailsBeforeRest) || 0; // rest after N emails
+  const total = recipients.length;
+
+  // Shared counters for progress and per-smtp counters
+  let sentCount = 0;
+  let failedCount = 0;
+  const perSmtpSent = new Array(smtpConfigs.length).fill(0);
+  let smtpIndex = 0;
+
+  const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
+
   // Prepare tasks per recipient
   const tasks = recipients.map((r, i) => async () => {
     const recipient = typeof r === 'string' ? r : r.email || r;
-    const smtp = smtpConfigs[i % smtpConfigs.length];
+    // pick smtp in round-robin starting at current smtpIndex
+    const smtp = smtpConfigs[smtpIndex % smtpConfigs.length];
     const smtpConfig = {
+      id: smtp._id,
+      name: smtp.name || smtp.host,
       host: smtp.host,
       port: smtp.port,
       secure: smtp.secure,
@@ -80,7 +97,74 @@ emailQueue.process(async (job) => {
       campaignId
     };
 
-    return await EmailService.sendEmail(emailData, userId);
+    try {
+      const result = await EmailService.sendEmail(emailData, userId);
+      // treat as success if at least one sent
+      if (result && result.sent > 0) {
+        sentCount += result.sent;
+        perSmtpSent[smtpIndex % smtpConfigs.length] += result.sent;
+
+        // Emit sent events for each recipient/result item
+        result.results.forEach(r => {
+          if (r.success && global.io) {
+            global.io.emit('send:sent', {
+              recipient: r.recipient || recipient,
+              smtp: smtpConfig,
+              index: sentCount,
+              total
+            });
+          }
+        });
+      }
+
+      if (result && result.failed > 0) {
+        failedCount += result.failed;
+        // Emit failed events
+        result.results.forEach(r => {
+          if (!r.success && global.io) {
+            global.io.emit('send:failed', {
+              recipient: r.recipient || recipient,
+              smtp: smtpConfig,
+              reason: r.error || 'Unknown',
+              index: sentCount + failedCount,
+              total
+            });
+          }
+        });
+      }
+
+      // Rotate if per-smtp rotationCount reached
+      if (rotationCount > 0 && perSmtpSent[smtpIndex % smtpConfigs.length] >= rotationCount) {
+        const from = smtpConfigs[smtpIndex % smtpConfigs.length];
+        smtpIndex = (smtpIndex + 1) % smtpConfigs.length;
+        const to = smtpConfigs[smtpIndex % smtpConfigs.length];
+        // reset counter for new smtp bucket
+        perSmtpSent[smtpIndex % smtpConfigs.length] = 0;
+        if (global.io) global.io.emit('send:rotate', { from: from.host, to: to.host });
+      }
+
+      // Emit progress
+      if (global.io) {
+        const percent = Math.round(((sentCount + failedCount) / total) * 100);
+        global.io.emit('send:progress', { sent: sentCount, failed: failedCount, total, percent });
+      }
+
+      // Rest if needed
+      if (restAfter > 0 && (sentCount > 0) && (sentCount % restAfter === 0) && restSeconds > 0) {
+        if (global.io) global.io.emit('send:rest', { duration: restSeconds, nextResumeAt: Date.now() + restSeconds * 1000 });
+        await sleep(restSeconds * 1000);
+      }
+
+      return result;
+    } catch (err) {
+      failedCount += 1;
+      if (global.io) global.io.emit('send:failed', { recipient, smtp: smtpConfig, reason: err.message || 'Error', index: sentCount + failedCount, total });
+      if (global.io) {
+        const percent = Math.round(((sentCount + failedCount) / total) * 100);
+        global.io.emit('send:progress', { sent: sentCount, failed: failedCount, total, percent });
+      }
+      return { success: false, error: err.message };
+    }
   });
 
   // Run tasks with concurrency

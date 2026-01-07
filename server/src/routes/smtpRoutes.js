@@ -277,44 +277,6 @@ router.get('/providers/default', auth, async (req, res) => {
       secure: false,
       dailyLimit: 100,
       hourlyLimit: 30
-    },
-    {
-      name: 'Mailgun',
-      provider: 'mailgun',
-      host: 'smtp.mailgun.org',
-      port: 587,
-      secure: false,
-      dailyLimit: 10000,
-      hourlyLimit: 1000,
-      instructions: 'Use SMTP credentials provided by Mailgun dashboard'
-    },
-    {
-      name: 'Zoho',
-      provider: 'zoho',
-      host: 'smtp.zoho.com',
-      port: 587,
-      secure: false,
-      dailyLimit: 1000,
-      hourlyLimit: 200,
-      instructions: 'Ensure SMTP is enabled in Zoho Mail settings'
-    },
-    {
-      name: 'Mailjet',
-      provider: 'mailjet',
-      host: 'in-v3.mailjet.com',
-      port: 587,
-      secure: false,
-      dailyLimit: 10000,
-      hourlyLimit: 1000
-    },
-    {
-      name: 'MailerSend',
-      provider: 'mailersend',
-      host: 'smtp.mailersend.net',
-      port: 587,
-      secure: false,
-      dailyLimit: 10000,
-      hourlyLimit: 1000
     }
   ];
 
@@ -322,6 +284,50 @@ router.get('/providers/default', auth, async (req, res) => {
     success: true,
     providers: defaultProviders
   });
+});
+
+// Bulk import SMTP accounts from a text body (Host|port|username|password|frommail per line)
+router.post('/import', auth, async (req, res) => {
+  try {
+    const { text } = req.body;
+    if (!text) return res.status(400).json({ success: false, error: 'No import text provided' });
+
+    const lines = text.split(/\r?\n/).map(l => l.trim()).filter(l => l.length > 0);
+    const created = [];
+
+    for (const line of lines) {
+      const parts = line.split('|').map(p => p.trim());
+      if (parts.length < 5) continue; // skip invalid
+      const [host, port, username, password, fromEmail] = parts;
+      const smtp = new SMTP({
+        userId: req.userId,
+        name: `${username}@${host}`,
+        host,
+        port: parseInt(port),
+        secure: false,
+        username,
+        password,
+        fromEmail,
+        isActive: true
+      });
+      await smtp.save();
+      created.push(smtp);
+    }
+
+    res.json({ success: true, createdCount: created.length, created });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// Bulk delete all SMTP configs for user
+router.post('/bulk-delete', auth, async (req, res) => {
+  try {
+    const result = await SMTP.deleteMany({ userId: req.userId });
+    res.json({ success: true, deletedCount: result.deletedCount });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
 });
 
 module.exports = router;

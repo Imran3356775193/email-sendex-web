@@ -43,6 +43,9 @@ import { useAuth } from '../context/AuthContext';
 import { useEmail } from '../context/EmailContext';
 import { useNavigate } from 'react-router-dom';
 import toast from 'react-hot-toast';
+import axios from 'axios';
+import { useSocket } from '../context/SocketContext';
+import LiveLog from '../components/LiveLog';
 
 const Dashboard = () => {
   const { user } = useAuth();
@@ -73,10 +76,81 @@ const Dashboard = () => {
 
   const [recentEmails, setRecentEmails] = useState([]);
   const [smtpStatus, setSmtpStatus] = useState([]);
+  const [importedEmails, setImportedEmails] = useState(0);
+  const [smtpCount, setSmtpCount] = useState(0);
+  const [performance, setPerformance] = useState({ sentPerMinute: 0, successRate: 100 });
+  const [liveProgress, setLiveProgress] = useState({ sent: 0, failed: 0, total: 0, percent: 0 });
+  const [logEvents, setLogEvents] = useState([]);
+
+  const { socket, onEvent, offEvent } = useSocket();
 
   useEffect(() => {
     fetchDashboardData();
   }, [emails, contacts, campaigns, templates, smtpSettings]);
+
+  // Fetch overview from the server and subscribe to live socket events
+  useEffect(() => {
+    let mounted = true;
+    const fetchOverview = async () => {
+      try {
+        const res = await axios.get('/api/stats/overview');
+        if (!mounted) return;
+        if (res.data && res.data.success) {
+          setImportedEmails(res.data.data.importedEmails || 0);
+          setSmtpCount(res.data.data.smtpCount || 0);
+        }
+
+        const perf = await axios.get('/api/stats/performance');
+        if (perf.data && perf.data.success) {
+          setPerformance(perf.data.data || {});
+        }
+      } catch (err) {
+        console.error('Failed to fetch overview/performance:', err);
+      }
+    };
+
+    fetchOverview();
+
+    const onProgress = (payload) => {
+      setLiveProgress(payload);
+    };
+
+    const onSent = (payload) => {
+      const line = `[MS] SENT TO: ${payload.recipient} | SMTP: ${payload.smtp?.host || payload.smtp?.name} | STATUS: SUCCESS ${payload.index}/${payload.total}`;
+      setLogEvents(prev => [...prev, line]);
+    };
+
+    const onFailed = (payload) => {
+      const line = `[MS] SENT TO: ${payload.recipient} | SMTP: ${payload.smtp?.host || payload.smtp?.name} | STATUS: FAILED | ${payload.reason}`;
+      setLogEvents(prev => [...prev, line]);
+    };
+
+    const onRotate = (payload) => {
+      const line = `-- ROTATED SMTP from ${payload.from} to ${payload.to} --`;
+      setLogEvents(prev => [...prev, line]);
+    };
+
+    const onRest = (payload) => {
+      const line = `-- RESTING ${payload.duration} seconds --`;
+      setLogEvents(prev => [...prev, line]);
+    };
+
+    onEvent('send:progress', onProgress);
+    onEvent('send:sent', onSent);
+    onEvent('send:failed', onFailed);
+    onEvent('send:rotate', onRotate);
+    onEvent('send:rest', onRest);
+
+    return () => {
+      mounted = false;
+      offEvent('send:progress', onProgress);
+      offEvent('send:sent', onSent);
+      offEvent('send:failed', onFailed);
+      offEvent('send:rotate', onRotate);
+      offEvent('send:rest', onRest);
+    };
+
+  }, [onEvent, offEvent]);
 
   const fetchDashboardData = () => {
     setLoading(true);
@@ -292,9 +366,9 @@ const Dashboard = () => {
         <Grid item xs={6} sm={3}>
           <QuickAction
             icon={<People sx={{ fontSize: 32 }} />}
-            label="Templates"
+            label="Contacts"
             color="#06d6a0"
-            onClick={() => navigate('/templates')}
+            onClick={() => navigate('/contacts')}
           />
         </Grid>
         <Grid item xs={6} sm={3}>
@@ -328,10 +402,11 @@ const Dashboard = () => {
         </Grid>
         <Grid item xs={12} sm={6} md={3}>
           <StatCard
-            title="Open Rate"
-            value={`${dashboardStats.openRate}%`}
-            icon={<OpenIcon />}
+            title="Active Contacts"
+            value={dashboardStats.activeContacts}
+            icon={<PersonIcon />}
             color="#7209b7"
+            onClick={() => navigate('/contacts')}
           />
         </Grid>
         {/* <Grid item xs={12} sm={6} md={3}>
@@ -541,45 +616,38 @@ const Dashboard = () => {
           {/* Performance Metrics */}
           <Card elevation={2} sx={{ mb: 3 }}>
             <CardContent>
-              <Typography variant="h6" fontWeight="bold" mb={3}>
+              <Typography variant="h6" fontWeight="bold" mb={2}>
                 Performance Metrics
               </Typography>
-              
-              {[
-                { label: 'Delivery Rate', value: `${dashboardStats.successRate}%`, progress: dashboardStats.successRate, color: 'success' },
-                { label: 'Open Rate', value: `${dashboardStats.openRate}%`, progress: dashboardStats.openRate, color: 'primary' },
-                { label: 'Click Rate', value: `${dashboardStats.clickRate}%`, progress: dashboardStats.clickRate, color: 'warning' },
-                { label: 'Bounce Rate', value: `${(100 - dashboardStats.successRate).toFixed(1)}%`, progress: (100 - dashboardStats.successRate), color: 'error' }
-              ].map((stat, index) => (
-                <Box key={index} mb={2.5}>
-                  <Box display="flex" justifyContent="space-between" alignItems="center" mb={1}>
-                    <Typography variant="body2" fontWeight="medium">
-                      {stat.label}
-                    </Typography>
-                    <Typography variant="body1" fontWeight="bold" sx={{ color: `${stat.color}.main` }}>
-                      {stat.value}
-                    </Typography>
-                  </Box>
-                  <LinearProgress 
-                    variant="determinate" 
-                    value={stat.progress}
-                    color={stat.color}
-                    sx={{ 
-                      borderRadius: 5, 
-                      height: 6,
-                      backgroundColor: `${stat.color}20`
-                    }}
-                  />
-                </Box>
-              ))}
-              
+
+              <Box mb={1}>
+                <Typography variant="caption" color="textSecondary">Imported Emails</Typography>
+                <Typography variant="h5" fontWeight="bold">{importedEmails}</Typography>
+              </Box>
+
+              <Box mb={1}>
+                <Typography variant="caption" color="textSecondary">SMTP Accounts</Typography>
+                <Typography variant="h5" fontWeight="bold">{smtpCount}</Typography>
+              </Box>
+
+              <Box mb={1}>
+                <Typography variant="caption" color="textSecondary">Sent per minute</Typography>
+                <Typography variant="h5" fontWeight="bold">{performance.sentPerMinute || 0}</Typography>
+              </Box>
+
+              <Box mb={1}>
+                <Typography variant="caption" color="textSecondary">Success Rate (24h)</Typography>
+                <Typography variant="h5" fontWeight="bold">{performance.successRate || 100}%</Typography>
+              </Box>
+
+              <Box mb={2}>
+                <Typography variant="caption" color="textSecondary">Live Progress</Typography>
+                <Typography variant="body1">{liveProgress.sent}/{liveProgress.total} sent ({liveProgress.percent || 0}%)</Typography>
+              </Box>
+
               <Divider sx={{ my: 2 }} />
-              
-              <Alert severity="info" sx={{ mt: 2 }}>
-                <Typography variant="body2">
-                  <strong>Tip:</strong> Improve open rates by personalizing subject lines and sending at optimal times.
-                </Typography>
-              </Alert>
+
+              <LiveLog events={logEvents} />
             </CardContent>
           </Card>
 
