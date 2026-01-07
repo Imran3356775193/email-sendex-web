@@ -14,6 +14,11 @@ router.post('/register', [
     const errors = validationResult(req);
     if (!errors.isEmpty()) return res.status(400).json({ success: false, errors: errors.array() });
 
+    // DB readiness check
+    if (require('mongoose').connection.readyState !== 1) {
+      return res.status(503).json({ success: false, error: 'Service unavailable - database not connected' });
+    }
+
     const { email, password, name } = req.body;
     const existing = await User.findOne({ email });
     if (existing) return res.status(400).json({ success: false, error: 'Email already registered' });
@@ -25,6 +30,10 @@ router.post('/register', [
 
     res.json({ success: true, user: { id: user._id, name: user.name, email: user.email, role: user.role }, token });
   } catch (error) {
+    // Map mongoose buffering errors to 503
+    if (error && error.message && error.message.toLowerCase().includes('buffering')) {
+      return res.status(503).json({ success: false, error: 'Service unavailable - database not ready' });
+    }
     res.status(500).json({ success: false, error: error.message });
   }
 });

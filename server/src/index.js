@@ -76,6 +76,10 @@ mongoose.connect(process.env.MONGODB_URI || 'mongodb://localhost:27017/email_sen
   logger.error('MongoDB connection error:', err);
 });
 
+// DB readiness middleware ( protects API routes when DB not connected )
+const dbReady = require('./middleware/dbReady');
+app.use('/api', dbReady);
+
 // Routes
 const emailRoutes = require('./routes/emailRoutes');
 const smtpRoutes = require('./routes/smtpRoutes');
@@ -84,6 +88,7 @@ const templateRoutes = require('./routes/templateRoutes');
 const trackingRoutes = require('./routes/trackingRoutes');
 const workerRoutes = require('./routes/workerRoutes');
 const authRoutes = require('./routes/authRoutes');
+const statsRoutes = require('./routes/statsRoutes');
 
 const debugRoutes = require('./routes/debugRoutes');
 
@@ -94,7 +99,13 @@ app.use('/api/templates', templateRoutes);
 app.use('/api/tracking', trackingRoutes);
 app.use('/api/workers', workerRoutes);
 app.use('/api/auth', authRoutes);
+app.use('/api/stats', statsRoutes);
 app.use('/api/debug', debugRoutes);
+
+// Health endpoint
+app.get('/api/health', (req, res) => {
+  res.json({ success: true, dbState: mongoose.connection.readyState });
+});
 
 // Serve static tracking pixel
 app.use('/track', express.static('public'));
