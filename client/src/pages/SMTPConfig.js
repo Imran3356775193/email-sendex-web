@@ -149,6 +149,39 @@ const SMTPConfig = () => {
       dailyLimit: 50000
     },
     { 
+      value: 'Zoho',
+      host: 'smtp.zoho.com',
+      port: 587,
+      encryption: 'tls',
+      helpLink: 'https://www.zoho.com/mail/help/smtp.html',
+      appPasswordRequired: false,
+      icon: 'Z',
+      color: '#2EA3F2',
+      dailyLimit: 1000
+    },
+    {
+      value: 'MailerSend',
+      host: 'smtp.mailersend.net',
+      port: 587,
+      encryption: 'tls',
+      helpLink: 'https://developers.mailersend.com/docs/smtp',
+      appPasswordRequired: false,
+      icon: 'MS',
+      color: '#6C5CE7',
+      dailyLimit: 10000
+    },
+    {
+      value: 'Mailjet',
+      host: 'in-v3.mailjet.com',
+      port: 587,
+      encryption: 'tls',
+      helpLink: 'https://www.mailjet.com/',
+      appPasswordRequired: false,
+      icon: 'MJ',
+      color: '#0077B5',
+      dailyLimit: 10000
+    },
+    { 
       value: 'Custom', 
       host: '', 
       port: 587, 

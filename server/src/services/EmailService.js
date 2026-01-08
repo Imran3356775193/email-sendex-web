@@ -4,6 +4,7 @@ const { v4: uuidv4 } = require('uuid');
 const SMTP = require('../models/SMTP');
 const Email = require('../models/Email');
 const Contact = require('../models/Contact');
+const { ClickTracking } = require('../models/Tracking');
 
 class EmailService {
   constructor() {
@@ -61,13 +62,53 @@ class EmailService {
           status: 'sending'
         });
 
-        // Add tracking per recipient if enabled
+        // Add tracking per recipient if enabled (pixel + link click tracking)
         let finalHtml = emailRecord.htmlBody;
         if (trackingEnabled && isHtml) {
           const pixelId = uuidv4();
-          const trackingPixel = `<img src="${process.env.BASE_URL || 'http://localhost:5000'}/track/pixel/${pixelId}" width="1" height="1" style="display:none;" alt=""/>`;
-          finalHtml = (finalHtml || body).replace('</body>', `${trackingPixel}</body>`);
+
+          // Find all links and create click tracking records
+          const htmlSource = finalHtml || body || '';
+          const linkRegex = /href=(["'])(https?:\/\/[^"']+)\1/gi;
+          const matches = [...htmlSource.matchAll(linkRegex)];
+
           emailRecord.tracking = { enabled: true, pixelId, clickIds: [] };
+
+          for (const m of matches) {
+            const originalUrl = m[2];
+            const clickId = uuidv4();
+            try {
+              const clickRec = new ClickTracking({
+                clickId,
+                emailId: emailRecord._id,
+                recipientEmail: recipient,
+                originalUrl,
+                clickedUrl: originalUrl
+              });
+              await clickRec.save();
+              emailRecord.tracking.clickIds.push(clickId);
+            } catch (e) {
+              console.error('Failed to save click tracking', e);
+            }
+          }
+
+          // Replace links with tracked redirect URLs in order
+          let clickIndex = 0;
+          finalHtml = htmlSource.replace(linkRegex, (full, quote, url) => {
+            const ct = emailRecord.tracking.clickIds[clickIndex++] || uuidv4();
+            const trackedUrl = `${process.env.BASE_URL || 'http://localhost:5000'}/api/tracking/click/${ct}?url=${encodeURIComponent(url)}`;
+            return `href="${trackedUrl}"`;
+          });
+
+          // Append tracking pixel that hits the server tracking endpoint
+          const trackingPixel = `<img src="${process.env.BASE_URL || 'http://localhost:5000'}/api/tracking/pixel/${pixelId}" width="1" height="1" style="display:none;" alt=""/>`;
+          if (finalHtml.includes('</body>')) {
+            finalHtml = finalHtml.replace('</body>', `${trackingPixel}</body>`);
+          } else {
+            finalHtml += trackingPixel;
+          }
+
+          emailRecord.tracking.pixelId = pixelId;
           emailRecord.htmlBody = finalHtml;
         }
 

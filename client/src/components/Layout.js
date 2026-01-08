@@ -41,11 +41,8 @@ const Layout = () => {
   const menuItems = [
     { path: '/', label: 'Dashboard', icon: <DashboardIcon /> },
     { path: '/compose', label: 'Compose', icon: <EmailIcon /> },
-    // { path: '/campaign', label: 'Campaign', icon: <CampaignIcon /> },
-    { path: '/contacts', label: 'Contacts', icon: <PeopleIcon /> },
     { path: '/templates', label: 'Templates', icon: <DescriptionIcon /> },
     { path: '/smtp', label: 'SMTP Config', icon: <SettingsIcon /> },
-    { path: '/workers', label: 'Workers', icon: <ComputerIcon /> },
     { path: '/history', label: 'History', icon: <HistoryIcon /> },
   ];
 

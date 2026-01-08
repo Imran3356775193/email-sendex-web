@@ -13,7 +13,7 @@ const smtpSchema = new mongoose.Schema({
   },
   provider: {
     type: String,
-    enum: ['gmail', 'outlook', 'yahoo', 'custom', 'sendgrid', 'amazon_ses'],
+    enum: ['gmail', 'outlook', 'yahoo', 'custom', 'sendgrid', 'amazon_ses', 'mailgun', 'zoho', 'mailjet', 'mailersend'],
     default: 'custom'
   },
   host: {
